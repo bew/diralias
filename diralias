@@ -29,7 +29,8 @@ Manage directory aliases as symlinks, with a change-tick for shell/editor integr
 COMMANDS:
   add NAME PATH           Create an alias NAME pointing to PATH
   get [PATH]              Get the alias name for PATH (default: current directory)
-  status                  List all aliases and current change-tick
+  list [--include-broken] List all (default: valid) aliases as NAME=PATH pairs (machine-readable)
+  status                  List all aliases and current change-tick (human-readable)
   path tick-file          Print the path to the change-tick file
   path aliases-dir        Print the path to the aliases directory
 
@@ -37,6 +38,7 @@ EXAMPLES:
   diralias add foo /some/path/to/foo-dir   # Create alias 'foo'
   diralias get                             # Get alias for current directory
   diralias get /some/path/to/foo-dir       # Get alias for given path
+  diralias list                            # List valid aliases as NAME=PATH
   diralias status                          # Show all aliases and change-tick
   diralias path tick-file                  # Print path to change-tick file
   diralias path aliases-dir                # Print path to aliases directory
@@ -218,6 +220,32 @@ function cmd_path() {
     esac
 }
 
+# List aliases as machine-readable NAME=PATH pairs
+# By default only includes aliases whose target exists; pass --include-broken to include all.
+function cmd_list() {
+    local include_broken=false
+    if [[ "${1:-}" == "--include-broken" ]]; then
+        include_broken=true
+    fi
+
+    ensure_storage_exists
+
+    local alias_link alias_name alias_target
+    for alias_link in "$DIRALIAS_ALIASES_DIR"/*; do
+        [[ -L "$alias_link" ]] || continue
+
+        alias_name="$(basename "$alias_link")"
+        alias_target="$(readlink "$alias_link")"
+
+        if ! $include_broken && [[ ! -e "$alias_link" ]]; then
+            # alias points to non-existant path, which should not be shown
+            continue
+        fi
+
+        printf "%s=%s\n" "$alias_name" "$alias_target"
+    done
+}
+
 # Show all aliases and the current change-tick
 function cmd_status() {
     ensure_storage_exists
@@ -275,6 +303,9 @@ function main() {
             ;;
         get)
             cmd_get "$@"
+            ;;
+        list)
+            cmd_list "$@"
             ;;
         status)
             cmd_status "$@"

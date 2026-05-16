@@ -377,6 +377,62 @@ function make_target_dir() {
 }
 
 # ------------------------------------------------------------------------------
+# list
+
+@test "list: outputs nothing when no aliases defined" {
+    run -0 "$SCRIPT_PATH" list
+    [[ -z "$output" ]]
+}
+
+@test "list: outputs NAME=PATH for each valid alias" {
+    local target1 target2
+    target1="$(make_target_dir l1)"
+    target2="$(make_target_dir l2)"
+
+    run -0 "$SCRIPT_PATH" add alpha "$target1"
+    run -0 "$SCRIPT_PATH" add beta "$target2"
+
+    run -0 "$SCRIPT_PATH" list
+    [[ "$output" == *"alpha=$target1"* ]]
+    [[ "$output" == *"beta=$target2"* ]]
+}
+
+@test "list: excludes broken aliases by default" {
+    local target
+    target="$(make_target_dir broken-base)"
+
+    run -0 "$SCRIPT_PATH" add good "$target"
+    # Manually create a broken symlink (target doesn't exist)
+    ln -s "/nonexistent/path" "$BATS_TEST_TMPDIR/state/diralias/aliases/broken"
+
+    run -0 "$SCRIPT_PATH" list
+    [[ "$output" == *"good="* ]]
+    ! [[ "$output" == *"broken="* ]]
+}
+
+@test "list: --include-broken includes aliases with missing targets" {
+    local target
+    target="$(make_target_dir include-broken-base)"
+
+    run -0 "$SCRIPT_PATH" add good "$target"
+    ln -s "/nonexistent/path" "$BATS_TEST_TMPDIR/state/diralias/aliases/broken"
+
+    run -0 "$SCRIPT_PATH" list --include-broken
+    [[ "$output" == *"good="* ]]
+    [[ "$output" == *"broken=/nonexistent/path"* ]]
+}
+
+@test "list: each line has exactly NAME=PATH format" {
+    local target
+    target="$(make_target_dir fmt)"
+
+    run -0 "$SCRIPT_PATH" add myfoo "$target"
+    run -0 "$SCRIPT_PATH" list
+
+    [[ "$output" == "myfoo=$target" ]]
+}
+
+# ------------------------------------------------------------------------------
 # path/tick-file
 
 @test "path/tick-file: prints the path to the change-tick file" {

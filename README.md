@@ -45,6 +45,27 @@ matching target) wins.
 
 Exits non-zero if no alias matches.
 
+#### `list [--include-broken]`
+
+List all aliases as `NAME=PATH` pairs, one per line. Intended for machine use (e.g. shell plugins).
+
+By default only aliases whose target directory still exists are included:
+
+```
+$ diralias list
+foo=/some/path/to/foo-dir
+work=/home/user/projects/work
+```
+
+Pass `--include-broken` to also include aliases whose target no longer exists:
+
+```
+$ diralias list --include-broken
+foo=/some/path/to/foo-dir
+gone=/deleted/path
+work=/home/user/projects/work
+```
+
 #### `path tick-file`
 
 Print the absolute path to the change-tick file.
