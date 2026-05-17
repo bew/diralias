@@ -290,13 +290,15 @@ function make_target_dir() {
 # ------------------------------------------------------------------------------
 # status
 
-@test "status: shows change-tick and no aliases when empty" {
+@test "status: shows sections and tick when empty" {
     run -0 "$SCRIPT_PATH" status
-    [[ "$output" == *"change-tick: 0"* ]]
-    [[ "$output" == *"(no aliases defined)"* ]]
+    [[ "$output" == *"VALID ALIASES: (0)"* ]]
+    [[ "$output" == *"BROKEN ALIASES: (0)"* ]]
+    [[ "$output" == *"CURRENT TICK: '0'"* ]]
+    [[ "$output" == *"(none)"* ]]
 }
 
-@test "status: shows all aliases after adding them" {
+@test "status: shows valid aliases in VALID ALIASES section" {
     local target1 target2
     target1="$(make_target_dir s1)"
     target2="$(make_target_dir s2)"
@@ -305,13 +307,28 @@ function make_target_dir() {
     run -0 "$SCRIPT_PATH" add beta "$target2"
 
     run -0 "$SCRIPT_PATH" status
+    [[ "$output" == *"VALID ALIASES: (2)"* ]]
     [[ "$output" == *"alpha"* ]]
     [[ "$output" == *"$target1"* ]]
     [[ "$output" == *"beta"* ]]
     [[ "$output" == *"$target2"* ]]
+    [[ "$output" == *"BROKEN ALIASES: (0)"* ]]
 }
 
-@test "status: shows updated change-tick after adds" {
+@test "status: shows broken aliases in BROKEN ALIASES section" {
+    local target
+    target="$(make_target_dir broken-status)"
+
+    run -0 "$SCRIPT_PATH" add good "$target"
+    ln -s "/nonexistent/path" "$BATS_TEST_TMPDIR/state/diralias/aliases/broken"
+
+    run -0 "$SCRIPT_PATH" status
+    [[ "$output" == *"VALID ALIASES: (1)"* ]]
+    [[ "$output" == *"BROKEN ALIASES: (1)"* ]]
+    [[ "$output" == *"broken -> /nonexistent/path"* ]]
+}
+
+@test "status: shows updated tick after adds" {
     local target
     target="$(make_target_dir tick)"
 
@@ -319,7 +336,7 @@ function make_target_dir() {
     run -0 "$SCRIPT_PATH" add two "$(make_target_dir tick2)"
 
     run -0 "$SCRIPT_PATH" status
-    [[ "$output" == *"change-tick: 2"* ]]
+    [[ "$output" == *"CURRENT TICK: '2'"* ]]
 }
 
 @test "status: aliases are listed in alphabetical order" {

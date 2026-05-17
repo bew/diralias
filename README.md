@@ -92,10 +92,14 @@ List all aliases and the current change-tick value.
 
 ```
 $ diralias status
-change-tick: 3
-
+VALID ALIASES: (2)
  • foo  -> /some/path/to/foo-dir
  • work -> ~/projects/work
+
+BROKEN ALIASES: (1)
+ • other -> /does/not/exist
+
+CURRENT TICK: '3'
 ```
 
 > [!NOTE]

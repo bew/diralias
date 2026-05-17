@@ -115,6 +115,7 @@ function cmd_add() {
     fi
 
     # Resolve to absolute path
+    # NOTE: this does NOT use `realpath` to preserve symlinks in the path
     local resolved_path
     resolved_path="$(cd "$alias_path" && pwd)"
 
@@ -250,43 +251,47 @@ function cmd_list() {
 function cmd_status() {
     ensure_storage_exists
 
-    local tick
-    tick=$(read_tick)
-    echo "change-tick: $tick"
-    echo # blank line
-
     local alias_link alias_name alias_target
-
-    # Collect aliases and calculate max alias name length
-    local -a alias_links=()
+    local -a valid_links=() broken_links=()
     local max_len=0
+
     for alias_link in "$DIRALIAS_ALIASES_DIR"/*; do
         [[ -L "$alias_link" ]] || continue
-        alias_links+=("$alias_link")
         alias_name="$(basename "$alias_link")"
         local name_len="${#alias_name}"
-        if (( name_len > max_len )); then
-            max_len="$name_len"
+        (( name_len > max_len )) && max_len="$name_len"
+        if [[ -e "$alias_link" ]]; then
+            valid_links+=("$alias_link")
+        else
+            broken_links+=("$alias_link")
         fi
     done
 
-    if [[ ${#alias_links[@]} == 0 ]]; then
-        echo "(no aliases defined)"
-        return 0
-    fi
+    # Helper to print a sorted section of aliases
+    _print_aliases_section() {
+        local -a links=("$@")
+        if [[ ${#links[@]} == 0 ]]; then
+            echo "  (none)"
+            return
+        fi
+        local sorted
+        sorted=$(printf "%s\n" "${links[@]}" | sort)
+        while IFS= read -r link; do
+            local name target pretty
+            name="$(basename "$link")"
+            target="$(readlink "$link")"
+            pretty="$(prettify_path "$target")"
+            printf " • %-${max_len}s -> %s\n" "$name" "$pretty"
+        done <<< "$sorted"
+    }
 
-    # Sort alphabetically and print with dynamic width
-    local sorted_links
-    sorted_links=$(printf "%s\n" "${alias_links[@]}" | sort)
-
-    while IFS= read -r alias_link; do
-        alias_name="$(basename "$alias_link")"
-        alias_target="$(readlink "$alias_link")"
-        local pretty_target
-        pretty_target="$(prettify_path "$alias_target")"
-        printf " • %-${max_len}s -> %s\n" "$alias_name" "$pretty_target"
-    done <<< "$sorted_links"
-    echo # blank line
+    echo "VALID ALIASES: (${#valid_links[@]})"
+    _print_aliases_section "${valid_links[@]}"
+    echo
+    echo "BROKEN ALIASES: (${#broken_links[@]})"
+    _print_aliases_section "${broken_links[@]}"
+    echo
+    echo "CURRENT TICK: '$(read_tick)'"
 }
 
 function main() {
