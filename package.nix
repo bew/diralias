@@ -32,6 +32,8 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     runHook preInstall
     install -Dm755 diralias $out/bin/diralias
+    install -Dm644 zsh-plugin/diralias.plugin.zsh $out/share/zsh/plugins/diralias/diralias.plugin.zsh
+    install -Dm644 zsh-plugin/_diralias $out/share/zsh/site-functions/_diralias
     runHook postInstall
   '';
 

@@ -1,0 +1,57 @@
+#compdef diralias
+
+local -a commands
+commands=(
+  'add:Create an alias NAME pointing to PATH'
+  'get:Get the alias name for PATH (default: current directory)'
+  'list:List aliases as NAME=PATH pairs (machine-readable)'
+  'status:List all aliases and current change-tick (human-readable)'
+  'path:Print paths to internal state files/dirs'
+  'help:Show usage information'
+)
+
+local -a path_subcommands
+path_subcommands=(
+  'tick-file:Print path to the change-tick file'
+  'aliases-dir:Print path to the aliases directory'
+)
+
+_diralias_alias_names() {
+  local -a names
+  local line
+  while IFS='=' read -r name _; do
+    names+=("$name")
+  done < <(diralias list --include-broken 2>/dev/null)
+  compadd -a names
+}
+
+_arguments -C \
+  '(-h --help)'{-h,--help}'[Show usage information]' \
+  '1:command:->command' \
+  '*:args:->args' \
+  && return
+
+case "$state" in
+  command)
+    _describe 'command' commands
+    ;;
+  args)
+    case "${words[2]}" in
+      add)
+        case $((CURRENT - 2)) in
+          1) _message 'alias name' ;;
+          2) _directories ;;
+        esac
+        ;;
+      get)
+        _directories
+        ;;
+      list)
+        _arguments '--include-broken[Include aliases with missing targets]'
+        ;;
+      path)
+        _describe 'sub-command' path_subcommands
+        ;;
+    esac
+    ;;
+esac
