@@ -20,12 +20,18 @@ function setup() {
     export XDG_STATE_HOME="$BATS_TEST_TMPDIR/state"
 }
 
-# Helper: create a real temporary directory for use as an alias target
+# Helper: Create a real temporary directory for use as an alias target
 function make_target_dir() {
     local name="$1"
     local dir="$BATS_TEST_TMPDIR/targets/$name"
     mkdir -p "$dir"
     echo "$dir"
+}
+
+# Helper: Get the diralias state dir for the test
+# (note: not exported as a var, to ensure diralias script doesn't have access to it)
+function get_state_dir() {
+    echo -n "$BATS_TEST_TMPDIR/state/diralias"
 }
 
 # ------------------------------------------------------------------------------
@@ -320,7 +326,7 @@ function make_target_dir() {
     target="$(make_target_dir broken-status)"
 
     run -0 "$SCRIPT_PATH" add good "$target"
-    ln -s "/nonexistent/path" "$BATS_TEST_TMPDIR/state/diralias/aliases/broken"
+    ln -s "/nonexistent/path" "$(get_state_dir)/aliases/broken"
 
     run -0 "$SCRIPT_PATH" status
     [[ "$output" == *"VALID ALIASES: (1)"* ]]
@@ -420,7 +426,7 @@ function make_target_dir() {
 
     run -0 "$SCRIPT_PATH" add good "$target"
     # Manually create a broken symlink (target doesn't exist)
-    ln -s "/nonexistent/path" "$BATS_TEST_TMPDIR/state/diralias/aliases/broken"
+    ln -s "/nonexistent/path" "$(get_state_dir)/aliases/broken"
 
     run -0 "$SCRIPT_PATH" list
     [[ "$output" == *"good="* ]]
@@ -432,7 +438,7 @@ function make_target_dir() {
     target="$(make_target_dir include-broken-base)"
 
     run -0 "$SCRIPT_PATH" add good "$target"
-    ln -s "/nonexistent/path" "$BATS_TEST_TMPDIR/state/diralias/aliases/broken"
+    ln -s "/nonexistent/path" "$(get_state_dir)/aliases/broken"
 
     run -0 "$SCRIPT_PATH" list --include-broken
     [[ "$output" == *"good="* ]]
@@ -453,17 +459,17 @@ function make_target_dir() {
 # path/tick-file
 
 @test "path/tick-file: prints the path to the change-tick file" {
-    local expected_tick_file="$BATS_TEST_TMPDIR/state/diralias/change-tick"
+    local expected_tick_file="$(get_state_dir)/change-tick"
     run -0 "$SCRIPT_PATH" path tick-file
     [[ "$output" == "$expected_tick_file" ]]
 }
 
 @test "path/tick-file: creates storage on first use" {
-    local state_dir="$BATS_TEST_TMPDIR/state/diralias"
+    local state_dir="$(get_state_dir)"
     [[ ! -d "$state_dir" ]]
 
     run -0 "$SCRIPT_PATH" path tick-file
-    [[ -f "$BATS_TEST_TMPDIR/state/diralias/change-tick" ]]
+    [[ -f "$(get_state_dir)/change-tick" ]]
 }
 
 @test "path/tick-file: printed path is the actual file that holds the tick value" {
@@ -480,17 +486,17 @@ function make_target_dir() {
 # path/aliases-dir
 
 @test "path/aliases-dir: prints the path to the aliases directory" {
-    local expected_aliases_dir="$BATS_TEST_TMPDIR/state/diralias/aliases"
+    local expected_aliases_dir="$(get_state_dir)/aliases"
     run -0 "$SCRIPT_PATH" path aliases-dir
     [[ "$output" == "$expected_aliases_dir" ]]
 }
 
 @test "path/aliases-dir: creates storage on first use" {
-    local state_dir="$BATS_TEST_TMPDIR/state/diralias"
+    local state_dir="$(get_state_dir)"
     [[ ! -d "$state_dir" ]]
 
     run -0 "$SCRIPT_PATH" path aliases-dir
-    [[ -d "$BATS_TEST_TMPDIR/state/diralias/aliases" ]]
+    [[ -d "$(get_state_dir)/aliases" ]]
 }
 
 @test "path/aliases-dir: printed path is the actual directory that holds aliases" {
@@ -524,7 +530,7 @@ function make_target_dir() {
 # edge
 
 @test "edge: storage directories are created automatically on first use" {
-    local state_dir="$BATS_TEST_TMPDIR/state/diralias"
+    local state_dir="$(get_state_dir)"
     [[ ! -d "$state_dir" ]]
 
     run -0 "$SCRIPT_PATH" status
@@ -535,7 +541,7 @@ function make_target_dir() {
 @test "edge: tick file initializes to 0" {
     run -0 "$SCRIPT_PATH" status
     local tick
-    tick="$(cat "$BATS_TEST_TMPDIR/state/diralias/change-tick")"
+    tick="$(cat "$(get_state_dir)/change-tick")"
     [[ "$tick" == "0" ]]
 }
 
@@ -547,3 +553,5 @@ function make_target_dir() {
     run -0 "$SCRIPT_PATH" get "$target"
     [[ "$output" == "spacey" ]]
 }
+
+# vim:set sw=4:
