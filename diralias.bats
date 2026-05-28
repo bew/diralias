@@ -34,6 +34,11 @@ function get_state_dir() {
     echo -n "$BATS_TEST_TMPDIR/state/diralias"
 }
 
+# Helper: Get current tick
+function get_tick() {
+    cat "$(get_state_dir)/change-tick"
+}
+
 # ------------------------------------------------------------------------------
 # cli
 
@@ -72,7 +77,7 @@ function get_state_dir() {
     run -0 "$SCRIPT_PATH" add myalias "$target"
     [[ "$output" == *"Added alias 'myalias'"* ]]
 
-    local state_dir="$BATS_TEST_TMPDIR/state/diralias/aliases"
+    local state_dir="$(get_state_dir)/aliases"
     [[ -L "$state_dir/myalias" ]]
     [[ "$(readlink "$state_dir/myalias")" == "$target" ]]
 }
@@ -81,15 +86,14 @@ function get_state_dir() {
     local target
     target="$(make_target_dir tick-test)"
 
-    local tick_file="$BATS_TEST_TMPDIR/state/diralias/change-tick"
 
     run -0 "$SCRIPT_PATH" add first "$target"
-    [[ "$(cat "$tick_file")" == "1" ]]
+    [[ "$(get_tick)" == "1" ]]
 
     local target2
     target2="$(make_target_dir tick-test2)"
     run -0 "$SCRIPT_PATH" add second "$target2"
-    [[ "$(cat "$tick_file")" == "2" ]]
+    [[ "$(get_tick)" == "2" ]]
 }
 
 @test "add: resolves relative paths to absolute" {
@@ -100,39 +104,28 @@ function get_state_dir() {
     run -0 bash -c "cd '$BATS_TEST_TMPDIR/targets/' && '$SCRIPT_PATH' add reltest reldir"
 
     local link_target
-    link_target="$(readlink "$BATS_TEST_TMPDIR/state/diralias/aliases/reltest")"
+    link_target="$(readlink "$(get_state_dir)/aliases/reltest")"
     # Must be an absolute path
     [[ "$link_target" == /* ]]
     [[ "$link_target" == "$target" ]]
 }
 
-@test "add: warns and overwrites an existing alias" {
-    local target
-    target="$(make_target_dir orig)"
-    local target2
-    target2="$(make_target_dir new)"
+@test "add: --force overwrites existing alias and increments tick" {
+    local init_target new_target
+    init_target="$(make_target_dir orig)"
+    new_target="$(make_target_dir new)"
 
-    run -0 "$SCRIPT_PATH" add mything "$target"
-
-    run -0 --separate-stderr "$SCRIPT_PATH" add mything "$target2"
-    [[ "$stderr" == *"Warning: Alias 'mything' already exists, overwriting"* ]]
+    run -0 "$SCRIPT_PATH" add same-name "$init_target"
+    run -0 --separate-stderr "$SCRIPT_PATH" add --force same-name "$new_target"
+    [[ "$stderr" == *"Warning: Overwriting alias 'same-name', old target: '$init_target'"* ]]
+    [[ "$output" == *"Added alias 'same-name'"* ]]
 
     local link_target
-    link_target="$(readlink "$BATS_TEST_TMPDIR/state/diralias/aliases/mything")"
-    [[ "$link_target" == "$target2" ]]
-}
-
-@test "add: overwriting an alias still increments tick" {
-    local target
-    target="$(make_target_dir over)"
-    local target2
-    target2="$(make_target_dir over2)"
-
-    run -0 "$SCRIPT_PATH" add samename "$target"
-    run -0 "$SCRIPT_PATH" add samename "$target2"
+    link_target="$(readlink "$(get_state_dir)/aliases/same-name")"
+    [[ "$link_target" == "$new_target" ]]
 
     local tick
-    tick="$(cat "$BATS_TEST_TMPDIR/state/diralias/change-tick")"
+    tick="$(get_tick)"
     [[ "$tick" == "2" ]]
 }
 
@@ -175,6 +168,25 @@ function get_state_dir() {
     [[ "$stderr" == *"must not be empty"* ]]
 }
 
+@test "add/error: refuses to overwrite existing alias without --force" {
+    local init_target new_target
+    init_target="$(make_target_dir orig)"
+    new_target="$(make_target_dir new)"
+
+    run -0 "$SCRIPT_PATH" add mything "$init_target"
+
+    local first_tick=1
+    [[ "$(get_tick)" == "$first_tick" ]]
+
+    run -1 --separate-stderr "$SCRIPT_PATH" add mything "$new_target"
+    [[ "$stderr" == *"Pass --force or -f to overwrite (current target: '$init_target')"* ]]
+    [[ "$(get_tick)" == "$first_tick" ]] # tick didn't change
+
+    local link_target
+    link_target="$(readlink "$(get_state_dir)/aliases/mything")"
+    [[ "$link_target" == "$init_target" ]] # target didn't change
+}
+
 # ------------------------------------------------------------------------------
 # rm
 
@@ -194,12 +206,11 @@ function get_state_dir() {
     local target
     target="$(make_target_dir remove-me)"
 
-    local tick_file="$(get_state_dir)/change-tick"
     run -0 "$SCRIPT_PATH" add doomed "$target"
-    [[ "$(cat "$tick_file")" == "1" ]]
+    [[ "$(get_tick)" == "1" ]]
 
     run -0 "$SCRIPT_PATH" rm doomed
-    [[ "$(cat "$tick_file")" == "2" ]]
+    [[ "$(get_tick)" == "2" ]]
 }
 
 # ------------------------------------------------------------------------------
@@ -216,12 +227,11 @@ function get_state_dir() {
 
     run -0 "$SCRIPT_PATH" add keep "$target"
 
-    local tick_file="$(get_state_dir)/change-tick"
-    [[ "$(cat "$tick_file")" == "1" ]]
+    [[ "$(get_tick)" == "1" ]]
 
     run -1 --separate-stderr "$SCRIPT_PATH" rm missing
     [[ "$stderr" == *"Alias 'missing' does not exist"* ]]
-    [[ "$(cat "$tick_file")" == "1" ]]
+    [[ "$(get_tick)" == "1" ]]
 }
 
 @test "rm/error: refuses to remove non-symlink file" {

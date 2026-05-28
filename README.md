@@ -14,7 +14,7 @@ diralias SUB-COMMAND [args...]
 
 ### Sub-commands
 
-#### `add NAME PATH`
+#### `add [-f|--force] NAME PATH`
 
 Create an alias `NAME` pointing to `PATH`. `PATH` is resolved to an absolute path.
 
@@ -22,7 +22,8 @@ Create an alias `NAME` pointing to `PATH`. `PATH` is resolved to an absolute pat
 diralias add foo /some/path/to/foo-dir
 ```
 
-If the alias name already exists, it is overwritten with a warning.
+If the alias name already exists, `diralias add` fails unless `-f` or `--force` is provided.
+With `-f` or `--force`, the alias is overwritten with a warning.
 
 #### `rm NAME`
 

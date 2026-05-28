@@ -27,13 +27,13 @@ Usage: diralias COMMAND [args...]
 Manage directory aliases as symlinks, with a change-tick for shell/editor integration.
 
 COMMANDS:
-  add NAME PATH           Create an alias NAME pointing to PATH
-  rm NAME                 Remove alias NAME
-  get [PATH]              Get the alias name for PATH (default: current directory)
-  list [--include-broken] List all (default: valid) aliases as NAME=PATH pairs (machine-readable)
-  status                  List all aliases and current change-tick (human-readable)
-  path tick-file          Print the path to the change-tick file
-  path aliases-dir        Print the path to the aliases directory
+  add [-f|--force] NAME PATH  Create an alias NAME pointing to PATH (force required to overwrite)
+  rm NAME                     Remove alias NAME
+  get [PATH]                  Get the alias name for PATH (default: current directory)
+  list [--include-broken]     List all (default: valid) aliases as NAME=PATH pairs (machine-readable)
+  status                      List all aliases and current change-tick (human-readable)
+  path tick-file              Print the path to the change-tick file
+  path aliases-dir            Print the path to the aliases directory
 
 EXAMPLES:
   diralias add foo /some/path/to/foo-dir   # Create alias 'foo'
@@ -99,33 +99,46 @@ function validate_alias_name() {
 
 # Add a new alias NAME -> PATH
 function cmd_add() {
+    local force=false
+    if [[ "${1:-}" == "-f" || "${1:-}" == "--force" ]]; then
+        force=true
+        shift
+    fi
+
     if [[ $# -lt 2 ]]; then
         echo_err "Error: 'add' requires NAME and PATH arguments"
-        echo_err "Usage: diralias add NAME PATH"
+        echo_err "Usage: diralias add [-f|--force] NAME PATH"
         exit 1
     fi
 
     local alias_name="$1"
-    local alias_path="$2"
+    local target_path="$2"
 
     validate_alias_name "$alias_name"
 
-    if [[ ! -d "$alias_path" ]]; then
-        echo_err "Error: Path is not an existing directory: $alias_path"
+    if [[ ! -d "$target_path" ]]; then
+        echo_err "Error: Path is not an existing directory: $target_path"
         exit 1
     fi
 
     # Resolve to absolute path
     # NOTE: this does NOT use `realpath` to preserve symlinks in the path
     local resolved_path
-    resolved_path="$(cd "$alias_path" && pwd)"
+    resolved_path="$(cd "$target_path" && pwd)"
 
     ensure_storage_exists
 
     local link_path="$DIRALIAS_ALIASES_DIR/$alias_name"
 
     if [[ -L "$link_path" ]]; then
-        echo_err "Warning: Alias '$alias_name' already exists, overwriting"
+        local old_target
+        old_target=$(readlink "$link_path")
+        if ! $force; then
+            echo_err "Error: Alias '$alias_name' already exists"
+            echo_err "==> Pass --force or -f to overwrite (current target: '$old_target')"
+            exit 1
+        fi
+        echo_err "Warning: Overwriting alias '$alias_name', old target: '$old_target'"
         rm "$link_path"
     elif [[ -e "$link_path" ]]; then
         echo_err "Error: '$link_path' exists and is not a symlink — refusing to overwrite"
@@ -365,3 +378,5 @@ function main() {
 }
 
 main "$@"
+
+# vim:set sw=4:
