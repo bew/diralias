@@ -176,6 +176,69 @@ function get_state_dir() {
 }
 
 # ------------------------------------------------------------------------------
+# rm
+
+@test "rm: removes existing alias and increments tick" {
+    local target
+    target="$(make_target_dir remove-me)"
+
+    run -0 "$SCRIPT_PATH" add doomed "$target"
+    [[ -e "$(get_state_dir)/aliases/doomed" ]] # alias exists
+
+    run -0 "$SCRIPT_PATH" rm doomed
+    [[ "$output" == "Removed alias 'doomed'" ]]
+    [[ ! -e "$(get_state_dir)/aliases/doomed" ]] # alias removed
+}
+
+@test "rm: increments change-tick after removing alias" {
+    local target
+    target="$(make_target_dir remove-me)"
+
+    local tick_file="$(get_state_dir)/change-tick"
+    run -0 "$SCRIPT_PATH" add doomed "$target"
+    [[ "$(cat "$tick_file")" == "1" ]]
+
+    run -0 "$SCRIPT_PATH" rm doomed
+    [[ "$(cat "$tick_file")" == "2" ]]
+}
+
+# ------------------------------------------------------------------------------
+# rm/error
+
+@test "rm/error: missing NAME argument" {
+    run -1 --separate-stderr "$SCRIPT_PATH" rm
+    [[ "$stderr" == *"'rm' requires exactly one NAME"* ]]
+}
+
+@test "rm/error: unknown alias does not change tick" {
+    local target
+    target="$(make_target_dir keep)"
+
+    run -0 "$SCRIPT_PATH" add keep "$target"
+
+    local tick_file="$(get_state_dir)/change-tick"
+    [[ "$(cat "$tick_file")" == "1" ]]
+
+    run -1 --separate-stderr "$SCRIPT_PATH" rm missing
+    [[ "$stderr" == *"Alias 'missing' does not exist"* ]]
+    [[ "$(cat "$tick_file")" == "1" ]]
+}
+
+@test "rm/error: refuses to remove non-symlink file" {
+    local target
+    target="$(make_target_dir real)"
+
+    run -0 "$SCRIPT_PATH" add real "$target"
+
+    local offender="$(get_state_dir)/aliases/notasymlink"
+    echo "ordinary file" > "$offender"
+
+    run -1 --separate-stderr "$SCRIPT_PATH" rm notasymlink
+    [[ "$stderr" == *"not an alias symlink"* ]]
+    [[ -f "$offender" ]] # still exists, will need manual rm
+}
+
+# ------------------------------------------------------------------------------
 # get
 
 @test "get: returns alias name for a given path" {

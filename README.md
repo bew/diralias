@@ -24,6 +24,16 @@ diralias add foo /some/path/to/foo-dir
 
 If the alias name already exists, it is overwritten with a warning.
 
+#### `rm NAME`
+
+Remove the alias named `NAME`.
+
+```
+diralias rm foo
+```
+
+Fails (and exits non-zero) if the alias does not exist or is not a managed diralias symlink.
+
 #### `get [PATH]`
 
 Get the alias name for `PATH` (defaults to the current directory `$PWD`).

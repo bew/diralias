@@ -28,6 +28,7 @@ Manage directory aliases as symlinks, with a change-tick for shell/editor integr
 
 COMMANDS:
   add NAME PATH           Create an alias NAME pointing to PATH
+  rm NAME                 Remove alias NAME
   get [PATH]              Get the alias name for PATH (default: current directory)
   list [--include-broken] List all (default: valid) aliases as NAME=PATH pairs (machine-readable)
   status                  List all aliases and current change-tick (human-readable)
@@ -135,6 +136,37 @@ function cmd_add() {
     increment_tick
 
     echo "Added alias '$alias_name' -> $resolved_path"
+}
+
+# Remove an existing alias NAME
+function cmd_rm() {
+    if [[ $# -ne 1 ]]; then
+        echo_err "Error: 'rm' requires exactly one NAME argument"
+        echo_err "Usage: diralias rm NAME"
+        exit 1
+    fi
+
+    local alias_name="$1"
+    validate_alias_name "$alias_name"
+
+    ensure_storage_exists
+
+    local link_path="$DIRALIAS_ALIASES_DIR/$alias_name"
+
+    if [[ ! -L "$link_path" ]]; then
+        if [[ -e "$link_path" ]]; then
+            echo_err "Error: '$link_path' exists but is not an alias symlink"
+            echo_err "==> Please remove it manually!"
+        else
+            echo_err "Error: Alias '$alias_name' does not exist"
+        fi
+        exit 1
+    fi
+
+    rm "$link_path"
+    increment_tick
+
+    echo "Removed alias '$alias_name'"
 }
 
 # Get the alias name (and optional remainder) for a given path (default: $PWD).
@@ -305,6 +337,9 @@ function main() {
     case "$cmd" in
         add)
             cmd_add "$@"
+            ;;
+        rm)
+            cmd_rm "$@"
             ;;
         get)
             cmd_get "$@"
