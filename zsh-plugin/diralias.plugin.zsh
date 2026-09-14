@@ -45,7 +45,7 @@ function _diralias_status() {
 }
 
 # Warn if the diralias bin is not available
-if ! "$_diralias_bin" --help 2>/dev/null >/dev/null; then
+if [[ ! -x "${commands[$_diralias_bin]:-$_diralias_bin}" ]]; then
   echo "diralias: Binary $_diralias_bin does not exist, zsh hook inactive"
 fi
 

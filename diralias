@@ -70,7 +70,8 @@ function prettify_path() {
 
 # Read the current tick value
 function read_tick() {
-    cat "$DIRALIAS_TICK_FILE"
+    # note: pref trick to avoid 'cat' subprocess
+    echo "$(< "$DIRALIAS_TICK_FILE")"
 }
 
 # Increment the change-tick by 1
@@ -197,7 +198,7 @@ function cmd_get() {
     for alias_link in "$DIRALIAS_ALIASES_DIR"/*; do
         [[ -L "$alias_link" ]] || continue
 
-        alias_name="$(basename "$alias_link")"
+        alias_name="${alias_link##*/}" # keep only basename
         alias_target="$(readlink "$alias_link")"
 
         # Exact match
@@ -280,7 +281,7 @@ function cmd_list() {
     for alias_link in "$DIRALIAS_ALIASES_DIR"/*; do
         [[ -L "$alias_link" ]] || continue
 
-        alias_name="$(basename "$alias_link")"
+        alias_name="${alias_link##*/}" # keep only basename
         alias_target="$(readlink "$alias_link")"
 
         if ! $include_broken && [[ ! -e "$alias_link" ]]; then
@@ -302,7 +303,7 @@ function cmd_status() {
 
     for alias_link in "$DIRALIAS_ALIASES_DIR"/*; do
         [[ -L "$alias_link" ]] || continue
-        alias_name="$(basename "$alias_link")"
+        alias_name="${alias_link##*/}" # keep only basename
         local name_len="${#alias_name}"
         (( name_len > max_len )) && max_len="$name_len"
         if [[ -e "$alias_link" ]]; then
@@ -323,7 +324,7 @@ function cmd_status() {
         sorted=$(printf "%s\n" "${links[@]}" | sort)
         while IFS= read -r link; do
             local name target pretty
-            name="$(basename "$link")"
+            name="${link##*/}" # keep only basename
             target="$(readlink "$link")"
             pretty="$(prettify_path "$target")"
             printf " • %-${max_len}s -> %s\n" "$name" "$pretty"
