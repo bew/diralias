@@ -3,6 +3,9 @@
 local -a commands
 commands=(
   'add:Create an alias NAME pointing to PATH'
+  'remove:Remove an alias NAME'
+  'rename:Rename an alias OLD to NEW, keeping its target'
+  'retarget:Change the target of an existing alias NAME'
   'get:Get the alias name for PATH (default: current directory)'
   'list:List aliases as NAME=PATH pairs (machine-readable)'
   'status:List all aliases and current change-tick (human-readable)'
@@ -40,6 +43,23 @@ case "$state" in
       add)
         case $((CURRENT - 2)) in
           1) _message 'alias name' ;;
+          2) _directories ;;
+        esac
+        ;;
+      remove|rm)
+        case $((CURRENT - 2)) in
+          1) _diralias_alias_names ;;
+        esac
+        ;;
+      rename)
+        case $((CURRENT - 2)) in
+          1) _diralias_alias_names ;;
+          2) _message 'new alias name' ;;
+        esac
+        ;;
+      retarget)
+        case $((CURRENT - 2)) in
+          1) _diralias_alias_names ;;
           2) _directories ;;
         esac
         ;;

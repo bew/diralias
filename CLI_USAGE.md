@@ -17,15 +17,36 @@ diralias add foo /some/path/to/foo-dir
 If the alias name already exists, `diralias add` fails unless `-f` or `--force` is provided.
 With `-f` or `--force`, the alias is overwritten with a warning.
 
-#### `rm NAME`
+#### `remove NAME`
 
-Remove the alias named `NAME`.
+Remove the alias named `NAME`. `rm` is accepted as an alias for this command.
 
 ```
-diralias rm foo
+diralias remove foo
 ```
 
 Fails (and exits non-zero) if the alias does not exist or is not a managed diralias symlink.
+
+#### `rename [-f|--force] OLD NEW`
+
+Rename the alias `OLD` to `NEW`, keeping its target unchanged.
+
+```
+diralias rename foo bar
+```
+
+Fails if `OLD` does not exist, or if `NEW` already exists.
+Pass `-f` or `--force` to overwrite an existing `NEW` alias (with a warning).
+
+#### `retarget NAME PATH`
+
+Change the target of existing alias `NAME` to `PATH`. `PATH` is resolved to an absolute path.
+
+```
+diralias retarget foo /another/dir
+```
+
+Fails if `NAME` does not exist or `PATH` is not an existing directory.
 
 #### `get [PATH]`
 

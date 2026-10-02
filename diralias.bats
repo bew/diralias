@@ -218,7 +218,7 @@ function get_tick() {
 
 @test "rm/error: missing NAME argument" {
     run -1 --separate-stderr "$SCRIPT_PATH" rm
-    [[ "$stderr" == *"'rm' requires exactly one NAME"* ]]
+    [[ "$stderr" == *"'remove' requires exactly one NAME"* ]]
 }
 
 @test "rm/error: unknown alias does not change tick" {
@@ -246,6 +246,146 @@ function get_tick() {
     run -1 --separate-stderr "$SCRIPT_PATH" rm notasymlink
     [[ "$stderr" == *"not an alias symlink"* ]]
     [[ -f "$offender" ]] # still exists, will need manual rm
+}
+
+# ------------------------------------------------------------------------------
+# remove
+
+@test "remove: removes existing alias and increments tick" {
+    local target
+    target="$(make_target_dir remove-me)"
+
+    run -0 "$SCRIPT_PATH" add doomed "$target"
+    [[ -e "$(get_state_dir)/aliases/doomed" ]]
+
+    run -0 "$SCRIPT_PATH" remove doomed
+    [[ "$output" == "Removed alias 'doomed'" ]]
+    [[ ! -e "$(get_state_dir)/aliases/doomed" ]]
+    [[ "$(get_tick)" == "2" ]]
+}
+
+@test "remove/error: unknown alias does not change tick" {
+    run -1 --separate-stderr "$SCRIPT_PATH" remove missing
+    [[ "$stderr" == *"Alias 'missing' does not exist"* ]]
+}
+
+# ------------------------------------------------------------------------------
+# rename
+
+@test "rename: renames alias keeping its target and increments tick" {
+    local target
+    target="$(make_target_dir rename-src)"
+
+    run -0 "$SCRIPT_PATH" add oldname "$target"
+    run -0 "$SCRIPT_PATH" rename oldname newname
+    [[ "$output" == "Renamed alias 'oldname' -> 'newname'" ]]
+
+    local aliases_dir="$(get_state_dir)/aliases"
+    [[ ! -e "$aliases_dir/oldname" ]]
+    [[ -L "$aliases_dir/newname" ]]
+    [[ "$(readlink "$aliases_dir/newname")" == "$target" ]]
+    [[ "$(get_tick)" == "2" ]]
+}
+
+@test "rename/error: missing NEW argument" {
+    run -1 --separate-stderr "$SCRIPT_PATH" rename onlyone
+    [[ "$stderr" == *"'rename' requires OLD and NEW"* ]]
+}
+
+@test "rename/error: unknown OLD alias" {
+    run -1 --separate-stderr "$SCRIPT_PATH" rename missing newname
+    [[ "$stderr" == *"Alias 'missing' does not exist"* ]]
+}
+
+@test "rename/error: OLD and NEW identical" {
+    local target
+    target="$(make_target_dir rename-same)"
+
+    run -0 "$SCRIPT_PATH" add samename "$target"
+    run -1 --separate-stderr "$SCRIPT_PATH" rename samename samename
+    [[ "$stderr" == *"OLD and NEW are the same"* ]]
+}
+
+@test "rename/error: refuses to overwrite existing NEW without --force" {
+    local t1 t2
+    t1="$(make_target_dir rename-orig)"
+    t2="$(make_target_dir rename-existing)"
+
+    run -0 "$SCRIPT_PATH" add first "$t1"
+    run -0 "$SCRIPT_PATH" add second "$t2"
+
+    run -1 --separate-stderr "$SCRIPT_PATH" rename first second
+    [[ "$stderr" == *"Alias 'second' already exists"* ]]
+    [[ "$stderr" == *"Pass --force or -f to overwrite"* ]]
+
+    local aliases_dir="$(get_state_dir)/aliases"
+    [[ -L "$aliases_dir/first" ]]
+    [[ "$(readlink "$aliases_dir/second")" == "$t2" ]]
+}
+
+@test "rename: --force overwrites existing NEW alias" {
+    local t1 t2
+    t1="$(make_target_dir rename-force-src)"
+    t2="$(make_target_dir rename-force-dst)"
+
+    run -0 "$SCRIPT_PATH" add first "$t1"
+    run -0 "$SCRIPT_PATH" add second "$t2"
+
+    run -0 "$SCRIPT_PATH" rename --force first second
+
+    local aliases_dir="$(get_state_dir)/aliases"
+    [[ ! -e "$aliases_dir/first" ]]
+    [[ "$(readlink "$aliases_dir/second")" == "$t1" ]]
+}
+
+# ------------------------------------------------------------------------------
+# retarget
+
+@test "retarget: changes target of existing alias and increments tick" {
+    local t1 t2
+    t1="$(make_target_dir retarget-src)"
+    t2="$(make_target_dir retarget-dst)"
+
+    run -0 "$SCRIPT_PATH" add myalias "$t1"
+    run -0 "$SCRIPT_PATH" retarget myalias "$t2"
+    [[ "$output" == *"Retargeted alias 'myalias'"* ]]
+
+    [[ "$(readlink "$(get_state_dir)/aliases/myalias")" == "$t2" ]]
+    [[ "$(get_tick)" == "2" ]]
+}
+
+@test "retarget: resolves relative paths to absolute" {
+    local target
+    target="$(make_target_dir retarget-rel)"
+
+    run -0 "$SCRIPT_PATH" add relalias "$(make_target_dir retarget-rel-initial)"
+    run -0 bash -c "cd '$BATS_TEST_TMPDIR/targets/' && '$SCRIPT_PATH' retarget relalias retarget-rel"
+
+    local link_target
+    link_target="$(readlink "$(get_state_dir)/aliases/relalias")"
+    [[ "$link_target" == "$target" ]]
+}
+
+@test "retarget/error: missing PATH argument" {
+    run -1 --separate-stderr "$SCRIPT_PATH" retarget onlyname
+    [[ "$stderr" == *"'retarget' requires NAME and PATH"* ]]
+}
+
+@test "retarget/error: unknown alias" {
+    local target
+    target="$(make_target_dir retarget-unknown)"
+
+    run -1 --separate-stderr "$SCRIPT_PATH" retarget missing "$target"
+    [[ "$stderr" == *"Alias 'missing' does not exist"* ]]
+}
+
+@test "retarget/error: non-existent target path" {
+    local target
+    target="$(make_target_dir retarget-real)"
+
+    run -0 "$SCRIPT_PATH" add real "$target"
+    run -1 --separate-stderr "$SCRIPT_PATH" retarget real /no/such/directory/ever
+    [[ "$stderr" == *"not an existing directory"* ]]
 }
 
 # ------------------------------------------------------------------------------

@@ -28,7 +28,9 @@ Manage directory aliases as symlinks, with a change-tick for shell/editor integr
 
 COMMANDS:
   add [-f|--force] NAME PATH  Create an alias NAME pointing to PATH (force required to overwrite)
-  rm NAME                     Remove alias NAME
+  remove NAME                 Remove alias NAME (alias: rm)
+  rename [-f|--force] OLD NEW Rename alias OLD to NEW, keeping its target
+  retarget NAME PATH          Change the target of existing alias NAME to PATH
   get [PATH]                  Get the alias name for PATH (default: current directory)
   list [--include-broken]     List all (default: valid) aliases as NAME=PATH pairs (machine-readable)
   status                      List all aliases and current change-tick (human-readable)
@@ -37,6 +39,9 @@ COMMANDS:
 
 EXAMPLES:
   diralias add foo /some/path/to/foo-dir   # Create alias 'foo'
+  diralias remove foo                      # Remove alias 'foo'
+  diralias rename foo bar                  # Rename alias 'foo' to 'bar'
+  diralias retarget foo /another/dir       # Point alias 'foo' at /another/dir
   diralias get                             # Get alias for current directory
   diralias get /some/path/to/foo-dir       # Get alias for given path
   diralias list                            # List valid aliases as NAME=PATH
@@ -192,10 +197,10 @@ function cmd_add() {
 }
 
 # Remove an existing alias NAME
-function cmd_rm() {
+function cmd_remove() {
     if [[ $# -ne 1 ]]; then
-        echo_err "Error: 'rm' requires exactly one NAME argument"
-        echo_err "Usage: diralias rm NAME"
+        echo_err "Error: 'remove' requires exactly one NAME argument"
+        echo_err "Usage: diralias remove NAME"
         exit 1
     fi
 
@@ -211,6 +216,75 @@ function cmd_rm() {
     increment_tick
 
     echo "Removed alias '$alias_name'"
+}
+
+# Rename alias OLD to NEW, keeping the same target.
+# Without --force, fails if an alias named NEW already exists.
+function cmd_rename() {
+    local force=false
+    if is_force_flag "${1:-}"; then
+        force=true
+        shift
+    fi
+
+    if [[ $# -ne 2 ]]; then
+        echo_err "Error: 'rename' requires OLD and NEW arguments"
+        echo_err "Usage: diralias rename [-f|--force] OLD NEW"
+        exit 1
+    fi
+
+    local old_name="$1"
+    local new_name="$2"
+
+    validate_alias_name "$old_name"
+    validate_alias_name "$new_name"
+
+    if [[ "$old_name" == "$new_name" ]]; then
+        echo_err "Error: OLD and NEW are the same: $old_name"
+        exit 1
+    fi
+
+    ensure_storage_exists
+
+    local old_link="$DIRALIAS_ALIASES_DIR/$old_name"
+    local new_link="$DIRALIAS_ALIASES_DIR/$new_name"
+
+    ensure_alias_exists "$old_link"
+    ensure_link_writable "$new_link" "$force"
+
+    mv "$old_link" "$new_link"
+    increment_tick
+
+    echo "Renamed alias '$old_name' -> '$new_name'"
+}
+
+# Change the target of existing alias NAME to PATH
+function cmd_retarget() {
+    if [[ $# -ne 2 ]]; then
+        echo_err "Error: 'retarget' requires NAME and PATH arguments"
+        echo_err "Usage: diralias retarget NAME PATH"
+        exit 1
+    fi
+
+    local alias_name="$1"
+    local target_path="$2"
+
+    validate_alias_name "$alias_name"
+    ensure_directory_exists "$target_path"
+
+    local resolved_path
+    resolved_path="$(resolve_dir "$target_path")"
+
+    ensure_storage_exists
+
+    local link_path="$DIRALIAS_ALIASES_DIR/$alias_name"
+    ensure_alias_exists "$link_path"
+
+    # -n treats an existing symlink-to-dir as a plain entry, so we replace the symlink itself
+    ln -sfn "$resolved_path" "$link_path"
+    increment_tick
+
+    echo "Retargeted alias '$alias_name' -> $resolved_path"
 }
 
 # Get the alias name (and optional remainder) for a given path (default: $PWD).
@@ -382,8 +456,14 @@ function main() {
         add)
             cmd_add "$@"
             ;;
-        rm)
-            cmd_rm "$@"
+        remove|rm)
+            cmd_remove "$@"
+            ;;
+        rename)
+            cmd_rename "$@"
+            ;;
+        retarget)
+            cmd_retarget "$@"
             ;;
         get)
             cmd_get "$@"
