@@ -7,7 +7,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "diralias";
-  version = "0.3.0";
+  version = lib.removePrefix "v" (lib.removeSuffix "\n" (builtins.readFile ./VERSION));
 
   src = ./.;
 

@@ -15,16 +15,18 @@ test-units:
 build:
   nix build
 
-# Tag the current commit as a release
+# Bump VERSION, commit, and tag a release
 release:
   #!/usr/bin/env bash
   set -euo pipefail
 
   if [[ -n "$(git status --porcelain)" ]]; then
     echo >&2
-    echo "!! WARNING: git worktree is dirty." >&2
-    git status --porcelain
+    echo "!! ERROR: git worktree is dirty." >&2
+    git status --porcelain >&2
     echo >&2
+    echo "Aborting." >&2
+    exit 1
   fi
 
   last_tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
@@ -43,6 +45,15 @@ release:
     echo "Aborted."
     exit 0
   fi
+
+  version="${new_tag#v}"
+  printf '%s\n' "$version" > VERSION
+  git add VERSION
+
+  echo
+  read -rp "Commit message [misc: release ${new_tag}]: " commit_msg
+  commit_msg="${commit_msg:-misc: release ${new_tag}}"
+  git commit -m "$commit_msg"
 
   git tag "$new_tag"
   echo "Tagged $new_tag at $(git rev-parse --short HEAD)"
