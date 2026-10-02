@@ -21,7 +21,10 @@
         default = let
           pkgs = nixpkgs.legacyPackages.${system};
         in pkgs.mkShell {
-          packages = [ pkgs.bats ];
+          packages = [
+            pkgs.bats
+            pkgs.just
+          ];
         };
       });
     }
