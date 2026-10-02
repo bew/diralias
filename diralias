@@ -98,10 +98,69 @@ function validate_alias_name() {
     fi
 }
 
+# Check whether ARG is the force flag (-f or --force)
+function is_force_flag() {
+    [[ "${1:-}" == "-f" || "${1:-}" == "--force" ]]
+}
+
+# Exit with an error unless PATH is an existing directory
+function ensure_directory_exists() {
+    local target_path="$1"
+    if [[ ! -d "$target_path" ]]; then
+        echo_err "Error: Path is not an existing directory: $target_path"
+        exit 1
+    fi
+}
+
+# Print the absolute form of an existing directory PATH.
+# NOTE: this does NOT use `realpath` to preserve symlinks in the path
+function resolve_dir() {
+    local dir_path="$1"
+    (cd "$dir_path" && pwd)
+}
+
+# Exit with an error unless LINK_PATH is an existing alias symlink.
+# Refuses (and explains) when the path is occupied by a non-symlink file.
+function ensure_alias_exists() {
+    local link_path="$1"
+    if [[ ! -L "$link_path" ]]; then
+        if [[ -e "$link_path" ]]; then
+            echo_err "Error: '$link_path' exists but is not an alias symlink"
+            echo_err "==> Please remove it manually!"
+        else
+            echo_err "Error: Alias '${link_path##*/}' does not exist"
+        fi
+        exit 1
+    fi
+}
+
+# Ensure LINK_PATH is free to (re)assign.
+# A pre-existing symlink is removed when FORCE is true (with a warning) and refused otherwise;
+# any other existing entry is always refused.
+function ensure_link_writable() {
+    local link_path="$1"
+    local force="$2"
+
+    if [[ -L "$link_path" ]]; then
+        local old_target
+        old_target=$(readlink "$link_path")
+        if ! $force; then
+            echo_err "Error: Alias '${link_path##*/}' already exists"
+            echo_err "==> Pass --force or -f to overwrite (current target: '$old_target')"
+            exit 1
+        fi
+        echo_err "Warning: Overwriting alias '${link_path##*/}', old target: '$old_target'"
+        rm "$link_path"
+    elif [[ -e "$link_path" ]]; then
+        echo_err "Error: '$link_path' exists and is not a symlink — refusing to overwrite"
+        exit 1
+    fi
+}
+
 # Add a new alias NAME -> PATH
 function cmd_add() {
     local force=false
-    if [[ "${1:-}" == "-f" || "${1:-}" == "--force" ]]; then
+    if is_force_flag "${1:-}"; then
         force=true
         shift
     fi
@@ -116,35 +175,15 @@ function cmd_add() {
     local target_path="$2"
 
     validate_alias_name "$alias_name"
+    ensure_directory_exists "$target_path"
 
-    if [[ ! -d "$target_path" ]]; then
-        echo_err "Error: Path is not an existing directory: $target_path"
-        exit 1
-    fi
-
-    # Resolve to absolute path
-    # NOTE: this does NOT use `realpath` to preserve symlinks in the path
     local resolved_path
-    resolved_path="$(cd "$target_path" && pwd)"
+    resolved_path="$(resolve_dir "$target_path")"
 
     ensure_storage_exists
 
     local link_path="$DIRALIAS_ALIASES_DIR/$alias_name"
-
-    if [[ -L "$link_path" ]]; then
-        local old_target
-        old_target=$(readlink "$link_path")
-        if ! $force; then
-            echo_err "Error: Alias '$alias_name' already exists"
-            echo_err "==> Pass --force or -f to overwrite (current target: '$old_target')"
-            exit 1
-        fi
-        echo_err "Warning: Overwriting alias '$alias_name', old target: '$old_target'"
-        rm "$link_path"
-    elif [[ -e "$link_path" ]]; then
-        echo_err "Error: '$link_path' exists and is not a symlink — refusing to overwrite"
-        exit 1
-    fi
+    ensure_link_writable "$link_path" "$force"
 
     ln -s "$resolved_path" "$link_path"
     increment_tick
@@ -166,16 +205,7 @@ function cmd_rm() {
     ensure_storage_exists
 
     local link_path="$DIRALIAS_ALIASES_DIR/$alias_name"
-
-    if [[ ! -L "$link_path" ]]; then
-        if [[ -e "$link_path" ]]; then
-            echo_err "Error: '$link_path' exists but is not an alias symlink"
-            echo_err "==> Please remove it manually!"
-        else
-            echo_err "Error: Alias '$alias_name' does not exist"
-        fi
-        exit 1
-    fi
+    ensure_alias_exists "$link_path"
 
     rm "$link_path"
     increment_tick
