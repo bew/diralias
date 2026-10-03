@@ -14,6 +14,9 @@ set -euo pipefail # Safe, strict script execution
 DIRALIAS_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/diralias"
 DIRALIAS_ALIASES_DIR="$DIRALIAS_STATE_DIR/aliases"
 DIRALIAS_TICK_FILE="$DIRALIAS_STATE_DIR/change-tick"
+# Version string printed by 'diralias --version'.
+# NOTE: the Nix package substitutes the real version for this sentinel at build time.
+DIRALIAS_VERSION="unversioned"
 
 function echo_err() {
     echo >&2 "$*"
@@ -36,6 +39,10 @@ COMMANDS:
   status                      List all aliases and current change-tick (human-readable)
   path tick-file              Print the path to the change-tick file
   path aliases-dir            Print the path to the aliases directory
+
+FLAGS:
+  -h, --help                  Show this help
+  -v, --version               Show version
 
 EXAMPLES:
   diralias add foo /some/path/to/foo-dir   # Create alias 'foo'
@@ -444,6 +451,11 @@ function cmd_status() {
     echo "CURRENT TICK: '$(read_tick)'"
 }
 
+# Print the program version
+function cmd_version() {
+    echo "diralias $DIRALIAS_VERSION"
+}
+
 function main() {
     if [[ $# == 0 ]]; then
         usage_and_exit 1
@@ -479,6 +491,9 @@ function main() {
             ;;
         -h|--help|help)
             usage_and_exit 0
+            ;;
+        -v|--version|version)
+            cmd_version
             ;;
         *)
             echo_err "Error: Unknown command: $cmd"

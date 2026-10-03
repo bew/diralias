@@ -11,6 +11,7 @@ commands=(
   'status:List all aliases and current change-tick (human-readable)'
   'path:Print paths to internal state files/dirs'
   'help:Show usage information'
+  'version:Show version'
 )
 
 local -a path_subcommands
@@ -30,6 +31,7 @@ _diralias_alias_names() {
 
 _arguments -C \
   '(-h --help)'{-h,--help}'[Show usage information]' \
+  '(-v --version)'{-v,--version}'[Show version]' \
   '1:command:->command' \
   '*:args:->args' \
   && return

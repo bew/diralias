@@ -129,3 +129,14 @@ CURRENT TICK: '3'
 > [!NOTE]
 > This command is for humans!
 > The output format of this command should NOT be used programatically, it may change at any time.
+
+#### `--version`
+
+Print the program version.
+
+```
+$ diralias --version
+diralias 0.7.0
+```
+
+`-v` and the `version` sub-command are accepted as aliases.

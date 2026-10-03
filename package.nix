@@ -5,9 +5,9 @@
   bats,
 }:
 
-stdenvNoCC.mkDerivation {
+stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "diralias";
-  version = lib.removePrefix "v" (lib.removeSuffix "\n" (builtins.readFile ./VERSION));
+  version = lib.removeSuffix "\n" (builtins.readFile ./VERSION);
 
   src = ./.;
 
@@ -19,6 +19,8 @@ stdenvNoCC.mkDerivation {
 
   postPatch = ''
     patchShebangs diralias
+    substituteInPlace diralias \
+      --replace-fail 'DIRALIAS_VERSION="unversioned"' 'DIRALIAS_VERSION="${finalAttrs.version}"'
   '';
 
   doCheck = true;
@@ -44,4 +46,4 @@ stdenvNoCC.mkDerivation {
     mainProgram = "diralias";
     platforms = lib.platforms.unix;
   };
-}
+})

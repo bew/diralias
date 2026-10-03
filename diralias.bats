@@ -62,6 +62,21 @@ function get_tick() {
     [[ "$stderr" == *"Usage: diralias"* ]]
 }
 
+@test "cli: --version prints version and exits 0" {
+    run -0 "$SCRIPT_PATH" --version
+    [[ "$output" =~ ^diralias\ (unversioned|v?[0-9]+\.[0-9]+\.[0-9]+)$ ]]
+}
+
+@test "cli: -v prints version and exits 0" {
+    run -0 "$SCRIPT_PATH" -v
+    [[ "$output" =~ ^diralias\ (unversioned|v?[0-9]+\.[0-9]+\.[0-9]+)$ ]]
+}
+
+@test "cli: version subcommand prints version and exits 0" {
+    run -0 "$SCRIPT_PATH" version
+    [[ "$output" =~ ^diralias\ (unversioned|v?[0-9]+\.[0-9]+\.[0-9]+)$ ]]
+}
+
 @test "cli: unknown command exits non-zero with error" {
     run -1 --separate-stderr "$SCRIPT_PATH" bogus-cmd
     [[ "$stderr" == *"Unknown command: bogus-cmd"* ]]
